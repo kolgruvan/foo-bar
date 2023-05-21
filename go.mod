@@ -1,4 +1,4 @@
-module github.com/odsod/foo-bar
+module github.com/kolgruvan/foo-bar
 
 go 1.20
 
