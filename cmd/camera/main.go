@@ -23,6 +23,7 @@ import (
 const (
 	V4L2_PIX_FMT_PJPG = 0x47504A50
 	V4L2_PIX_FMT_YUYV = 0x56595559
+	V4L2_FIX_FMT_JFIF = 1195724874
 )
 
 type FrameSizes []webcam.FrameSize
@@ -46,6 +47,7 @@ func (slice FrameSizes) Swap(i, j int) {
 var supportedFormats = map[webcam.PixelFormat]bool{
 	V4L2_PIX_FMT_PJPG: true,
 	V4L2_PIX_FMT_YUYV: true,
+	V4L2_FIX_FMT_JFIF: true,
 }
 
 func main() {
@@ -67,8 +69,8 @@ func main() {
 	format_desc := cam.GetSupportedFormats()
 
 	fmt.Println("Available formats:")
-	for _, s := range format_desc {
-		fmt.Fprintln(os.Stderr, s)
+	for f, s := range format_desc {
+		fmt.Fprintln(os.Stderr, f, s)
 	}
 
 	var format webcam.PixelFormat
@@ -208,6 +210,7 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 		copy(frame, bframe)
 		back <- struct{}{}
 
+		buf := &bytes.Buffer{}
 		switch format {
 		case V4L2_PIX_FMT_YUYV:
 			yuyv := image.NewYCbCr(image.Rect(0, 0, int(w), int(h)), image.YCbCrSubsampleRatio422)
@@ -220,14 +223,15 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 
 			}
 			img = yuyv
+			//convert to jpeg
+			if err := jpeg.Encode(buf, img, nil); err != nil {
+				log.Fatal(err)
+				return
+			}
+		case V4L2_FIX_FMT_JFIF:
+			_, _ = buf.Write(bframe)
 		default:
 			log.Fatal("invalid format ?")
-		}
-		//convert to jpeg
-		buf := &bytes.Buffer{}
-		if err := jpeg.Encode(buf, img, nil); err != nil {
-			log.Fatal(err)
-			return
 		}
 
 		const N = 50
